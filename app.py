@@ -2,7 +2,7 @@ from flask import Flask, request, render_template_string, redirect, url_for
 import sqlite3
 
 app = Flask(__name__)
-DB_NAME = 'academy.db'
+DB_NAME = 'academy_v14.db'
 
 # إنشاء قاعدة البيانات وقراءة الدروس منها (SQLite)
 def init_db():
