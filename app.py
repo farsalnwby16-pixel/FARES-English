@@ -5,10 +5,10 @@ import uuid
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# استخدام المجلد /tmp المتوافق مع بيئة Vercel لمنع خطأ 500
+BASE_DIR = '/tmp' if os.path.exists('/tmp') else os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'academy.db')
 
-# تحويل أي رابط يوتيوب لرابط embed قابل للتشغيل تلقائياً
 def fix_youtube_url(url):
     if not url:
         return "https://www.youtube.com/embed/gR_4m2b_sC4"
@@ -23,48 +23,52 @@ def fix_youtube_url(url):
         return f"https://www.youtube.com/embed/{video_id}"
     return url
 
-# تهيئة قاعدة البيانات
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lessons (
-            id TEXT PRIMARY KEY,
-            level TEXT,
-            title TEXT,
-            order_num INTEGER,
-            video_url TEXT
-        )
-    ''')
-    
-    cursor.execute("SELECT COUNT(*) FROM lessons")
-    if cursor.fetchone()[0] == 0:
-        default_lessons = [
-            ("a1_1", "A1", "الدرس 1: التأسييس الشامل وبداية التعارف والضمائر", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
-            ("a1_2", "A1", "الدرس 2: الروتين اليومي والسؤال عن الوقت", 2, "https://www.youtube.com/embed/36yT2G228vA"),
-            ("a2_1", "A2", "الدرس 1: إدارة الحوارات الكاملة في المطاعم والمقاهي", 1, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
-            ("b1_1", "B1", "الدرس 1: التخطيط للعطلات ومناقشة وجهات السفر", 1, "https://www.youtube.com/embed/uG_7S86t6Dk"),
-            ("b2_1", "B2", "الدرس 1: إدارة اجتماعات العمل وتقديم العروض التقديمية", 1, "https://www.youtube.com/embed/S32Y_Jm34sY"),
-            ("c1_1", "C1", "الدرس 1: الخطاب الأكاديمي وصياغة الحجج المنطقية", 1, "https://www.youtube.com/embed/36yT2G228vA")
-        ]
-        cursor.executemany("INSERT INTO lessons VALUES (?, ?, ?, ?, ?)", default_lessons)
-        conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lessons (
+                id TEXT PRIMARY KEY,
+                level TEXT,
+                title TEXT,
+                order_num INTEGER,
+                video_url TEXT
+            )
+        ''')
+        
+        cursor.execute("SELECT COUNT(*) FROM lessons")
+        if cursor.fetchone()[0] == 0:
+            default_lessons = [
+                ("a1_1", "A1", "الدرس 1: التأسيس الشامل وبداية التعارف والضمائر", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+                ("a1_2", "A1", "الدرس 2: الروتين اليومي والسؤال عن الوقت", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+                ("a2_1", "A2", "الدرس 1: إدارة الحوارات الكاملة في المطاعم والمقاهي", 1, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
+                ("b1_1", "B1", "الدرس 1: التخطيط للعطلات ومناقشة وجهات السفر", 1, "https://www.youtube.com/embed/uG_7S86t6Dk"),
+                ("b2_1", "B2", "الدرس 1: إدارة اجتماعات العمل وتقديم العروض التقديمية", 1, "https://www.youtube.com/embed/S32Y_Jm34sY"),
+                ("c1_1", "C1", "الدرس 1: الخطاب الأكاديمي وصياغة الحجج المنطقية", 1, "https://www.youtube.com/embed/36yT2G228vA")
+            ]
+            cursor.executemany("INSERT INTO lessons VALUES (?, ?, ?, ?, ?)", default_lessons)
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        pass
 
 def get_all_lessons():
     init_db()
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, level, title, order_num, video_url FROM lessons ORDER BY level ASC, order_num ASC")
-    rows = cursor.fetchall()
-    conn.close()
-    
     data = {"A1": [], "A2": [], "B1": [], "B2": [], "C1": [], "C2": []}
-    for r in rows:
-        lvl = r[1]
-        if lvl not in data:
-            data[lvl] = []
-        data[lvl].append({"id": r[0], "level": r[1], "title": r[2], "order": r[3], "video": r[4]})
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, level, title, order_num, video_url FROM lessons ORDER BY level ASC, order_num ASC")
+        rows = cursor.fetchall()
+        conn.close()
+        for r in rows:
+            lvl = r[1]
+            if lvl not in data:
+                data[lvl] = []
+            data[lvl].append({"id": r[0], "level": r[1], "title": r[2], "order": r[3], "video": r[4]})
+    except Exception:
+        pass
     return data
 
 MAIN_TEMPLATE = """
@@ -85,7 +89,6 @@ MAIN_TEMPLATE = """
         .backdrop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 998; backdrop-filter: blur(3px); }
         .backdrop.active { display: block; }
 
-        /* القائمة الجانبية المضبوطة */
         .sidebar { position: fixed; top: 0; right: -320px; width: 300px; max-width: 85vw; height: 100vh; background-color: #1e293b; color: white; padding: 20px; overflow-y: auto; z-index: 999; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: -5px 0 25px rgba(0,0,0,0.3); }
         .sidebar.active { right: 0; }
         
@@ -111,7 +114,6 @@ MAIN_TEMPLATE = """
         .video-box iframe { width: 100%; height: 100%; border: none; }
         .yt-btn { display: block; text-align: center; background: #ef4444; color: white; text-decoration: none; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; margin-bottom: 20px; }
 
-        /* أرباع وأقسام التحكم والتحرير */
         .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }
         @media (max-width: 768px) {
             .admin-grid { grid-template-columns: 1fr; }
@@ -142,7 +144,6 @@ MAIN_TEMPLATE = """
 
     <div class="backdrop" id="backdrop" onclick="closeSidebar()"></div>
 
-    <!-- القائمة الجانبية -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <span class="brand">🎓 أكاديمية فارس</span>
@@ -171,7 +172,6 @@ MAIN_TEMPLATE = """
         </div>
     </div>
 
-    <!-- المحتوى الرئيسي -->
     <div class="main-content">
         <div class="card">
             <div class="lesson-heading">مستوى {{ current_lesson.level }} | {{ current_lesson.title }}</div>
@@ -183,7 +183,6 @@ MAIN_TEMPLATE = """
 
             <div class="admin-grid">
                 
-                <!-- لوحة إمكانية إضافة درس جديد لكل مستوى -->
                 <div class="admin-box add-box">
                     <h4>➕ إضافة فيديو / درس جديد لأي مستوى</h4>
                     <form action="/add_lesson" method="POST">
@@ -214,7 +213,6 @@ MAIN_TEMPLATE = """
                     </form>
                 </div>
 
-                <!-- لوحة تعديل الدرس الحالي -->
                 <div class="admin-box edit-box">
                     <h4>⚙️ تعديل الدرس الحالي ({{ current_lesson.title }})</h4>
                     <form action="/update/{{ current_lesson.id }}" method="POST">
@@ -363,17 +361,19 @@ def add_lesson():
     order_num = int(request.form.get('order', 1))
     raw_video = request.form.get('video', '')
     video_url = fix_youtube_url(raw_video)
-    
     lesson_id = f"{level.lower()}_{uuid.uuid4().hex[:6]}"
     
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO lessons (id, level, title, order_num, video_url)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (lesson_id, level, title, order_num, video_url))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO lessons (id, level, title, order_num, video_url)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (lesson_id, level, title, order_num, video_url))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
     
     return redirect(url_for('show_lesson', lesson_id=lesson_id))
 
@@ -383,25 +383,31 @@ def update_lesson(lesson_id):
     new_order = int(request.form.get('order', 1))
     new_video = fix_youtube_url(request.form.get('video'))
     
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        UPDATE lessons 
-        SET title = ?, order_num = ?, video_url = ?
-        WHERE id = ?
-    ''', (new_title, new_order, new_video, lesson_id))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE lessons 
+            SET title = ?, order_num = ?, video_url = ?
+            WHERE id = ?
+        ''', (new_title, new_order, new_video, lesson_id))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
     
     return redirect(url_for('show_lesson', lesson_id=lesson_id))
 
 @app.route('/delete/<lesson_id>', methods=['POST'])
 def delete_lesson(lesson_id):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM lessons WHERE id = ?', (lesson_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM lessons WHERE id = ?', (lesson_id,))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
     return redirect('/')
 
 @app.route('/certificate')
