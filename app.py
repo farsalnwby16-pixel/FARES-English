@@ -1,329 +1,143 @@
-from flask import Flask, request, render_template_string, redirect, url_for
-import sqlite3
 import os
-import uuid
+from flask import Flask, render_template_string, request, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
-BASE_DIR = '/tmp' if os.path.exists('/tmp') else os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'academy.db')
+class Lesson(db.Model):
+    id = db.Column(db.String(50), primary_key=True)
+    level = db.Column(db.String(10), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    order = db.Column(db.Integer, nullable=False)
+    youtube_url = db.Column(db.String(300), nullable=False)
 
-def fix_youtube_url(url):
-    if not url:
-        return "https://www.youtube.com/embed/gR_4m2b_sC4"
-    url = url.strip()
-    if "youtube.com/embed/" in url:
-        return url
-    if "youtu.be/" in url:
-        video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
-        return f"https://www.youtube.com/embed/{video_id}"
-    if "watch?v=" in url:
-        video_id = url.split("watch?v=")[1].split("&")[0]
-        return f"https://www.youtube.com/embed/{video_id}"
-    return url
+DEFAULT_LESSONS = [
+    # مستوى A1
+    ("a1_1", "A1", "الدرس 1: نطق الحروف والأصوات الأساسية (Phonics)", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("a1_2", "A1", "الدرس 2: تكوين الجملة الإنجليزية الصحيحة", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("a1_3", "A1", "الدرس 3: محادثات التحية والتعارف اليومي", 3, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("a1_4", "A1", "الدرس 4: قواعد الضمائر وفعل الكينونة To Be", 4, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("a1_5", "A1", "الدرس 5: أهم 100 كلمة شائعة لبداية قوية", 5, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("a1_6", "A1", "الدرس 6: الروتين اليومي والسؤال عن الوقت", 6, "https://www.youtube.com/embed/36yT2G228vA"),
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lessons (
-            id TEXT PRIMARY KEY,
-            level TEXT,
-            title TEXT,
-            order_num INTEGER,
-            video_url TEXT
-        )
-    ''')
-    
-    # التأكد من وجود الدروس دائماً
-    cursor.execute("SELECT COUNT(*) FROM lessons")
-    if cursor.fetchone()[0] == 0:
-        default_lessons = [
-            ("a1_1", "A1", "الدرس 1: التأسيس الشامل والضمائر", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
-            ("a1_2", "A1", "الدرس 2: الروتين اليومي والسؤال عن الوقت", 2, "https://www.youtube.com/embed/36yT2G228vA"),
-            ("a1_3", "A1", "الدرس 3: العائلة والأقارب وصفات الأشخاص", 3, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
-            ("a2_1", "A2", "الدرس 1: المحادثة في المطاعم والمقاهي", 1, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
-            ("a2_2", "A2", "الدرس 2: التسوق والتعبير عن الرأي", 2, "https://www.youtube.com/embed/uG_7S86t6Dk"),
-            ("b1_1", "B1", "الدرس 1: التخطيط للعطلات والسفر", 1, "https://www.youtube.com/embed/uG_7S86t6Dk"),
-            ("b1_2", "B1", "الدرس 2: مقابلات العمل والسيرة الذاتية", 2, "https://www.youtube.com/embed/S32Y_Jm34sY"),
-            ("b2_1", "B2", "الدرس 1: اجتماعات العمل والعروض التقديمية", 1, "https://www.youtube.com/embed/S32Y_Jm34sY"),
-            ("c1_1", "C1", "الدرس 1: الخطاب الأكاديمي والحجج المنطقية", 1, "https://www.youtube.com/embed/36yT2G228vA")
-        ]
-        cursor.executemany('''
-            INSERT INTO lessons (id, level, title, order_num, video_url)
-            VALUES (?, ?, ?, ?, ?)
-        ''', default_lessons)
+    # مستوى A2
+    ("a2_1", "A2", "الدرس 1: الماضي البسيط وذكريات الطفولة", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("a2_2", "A2", "الدرس 2: خطط المستقبل واستخدام Going to", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("a2_3", "A2", "الدرس 3: محادثات التسوق والشراء بطلاقة", 3, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("a2_4", "A2", "الدرس 4: التحدث عن الهوايات وأوقات الفراغ", 4, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("a2_5", "A2", "الدرس 5: وصف الأشخاص والمقارنات", 5, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("a2_6", "A2", "الدرس 6: الاستماع اليومي وقصص المبتدئين", 6, "https://www.youtube.com/embed/36yT2G228vA"),
 
-    conn.commit()
-    conn.close()
+    # مستوى B1
+    ("b1_1", "B1", "الدرس 1: المضارع التام (Present Perfect)", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("b1_2", "B1", "الدرس 2: الجمل الشرطية (If Conditionals)", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("b1_3", "B1", "الدرس 3: التعبير عن الرأي والنقاشات الحية", 3, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("b1_4", "B1", "الدرس 4: إنجليزية العمل والمقابلات الشخصية", 4, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("b1_5", "B1", "الدرس 5: السفر وحجز الفنادق في المطار", 5, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("b1_6", "B1", "الدرس 6: ممارسة الاستماع المتقدم قليلاً", 6, "https://www.youtube.com/embed/36yT2G228vA"),
 
-def get_all_lessons():
-    init_db()
-    data = {"A1": [], "A2": [], "B1": [], "B2": [], "C1": [], "C2": []}
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, level, title, order_num, video_url FROM lessons ORDER BY level ASC, order_num ASC")
-        rows = cursor.fetchall()
-        conn.close()
-        for r in rows:
-            lvl = r[1]
-            if lvl not in data:
-                data[lvl] = []
-            data[lvl].append({"id": r[0], "level": r[1], "title": r[2], "order": r[3], "video": r[4]})
-    except Exception:
-        pass
-    return data
+    # مستوى B2
+    ("b2_1", "B2", "الدرس 1: المجهول في اللغة (Passive Voice)", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("b2_2", "B2", "الدرس 2: العبارات الاصطلاحية (Phrasal Verbs)", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("b2_3", "B2", "الدرس 3: إدارة النقاشات المعقدة", 3, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("b2_4", "B2", "الدرس 4: إنجليزية الأعمال وكتابة الإيميلات", 4, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("b2_5", "B2", "الدرس 5: تقنية Shadowing لفهم الأفلام", 5, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("b2_6", "B2", "الدرس 6: سرد القصص والمواقف باحترافية", 6, "https://www.youtube.com/embed/36yT2G228vA"),
 
-MAIN_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fares Academy - أكاديمية فارس</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-        body { background-color: #f1f5f9; color: #0f172a; min-height: 100vh; }
-        header { background: #1e293b; color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .open-sidebar-btn { background: #d4af37; color: #1e293b; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; cursor: pointer; }
-        .backdrop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 998; }
-        .backdrop.active { display: block; }
-        .sidebar { position: fixed; top: 0; right: -320px; width: 300px; height: 100vh; background-color: #1e293b; color: white; padding: 20px; overflow-y: auto; z-index: 999; transition: right 0.3s; }
-        .sidebar.active { right: 0; }
-        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 12px; }
-        .brand { font-size: 18px; font-weight: 900; color: #d4af37; }
-        .close-btn { background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; }
-        .level-title { font-size: 14px; font-weight: 800; color: #f59e0b; margin-top: 18px; margin-bottom: 8px; }
-        .lesson-link { display: block; padding: 10px; color: #cbd5e1; text-decoration: none; border-radius: 8px; font-size: 12px; margin-bottom: 6px; background: rgba(255,255,255,0.03); }
-        .lesson-link:hover, .lesson-link.active { background-color: #d4af37; color: #1e293b; font-weight: 800; }
-        .cert-card { background: rgba(212, 175, 55, 0.15); border: 1px solid #d4af37; padding: 16px; border-radius: 12px; margin-top: 25px; text-align: center; }
-        .cert-card h4 { color: #d4af37; margin-bottom: 8px; font-size: 14px; }
-        .cert-input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; }
-        .cert-btn { width: 100%; padding: 10px; background-color: #d4af37; color: #1e293b; font-weight: 800; border-radius: 6px; border: none; cursor: pointer; }
-        .main-content { max-width: 950px; margin: 0 auto; padding: 20px 15px; }
-        .card { background: white; border-radius: 14px; padding: 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 20px; }
-        .lesson-heading { text-align: center; font-size: 20px; font-weight: 900; margin-bottom: 16px; }
-        .video-box { width: 100%; height: 440px; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
-        .video-box iframe { width: 100%; height: 100%; border: none; }
-        .yt-btn { display: block; text-align: center; background: #ef4444; color: white; text-decoration: none; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; margin-bottom: 20px; }
-        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        @media (max-width: 768px) { .admin-grid { grid-template-columns: 1fr; } .video-box { height: 240px; } }
-        .admin-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 16px; }
-        .form-group { margin-bottom: 10px; }
-        .form-group label { display: block; font-size: 11px; font-weight: 800; margin-bottom: 4px; }
-        .form-control { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; }
-        .btn-green { width: 100%; background-color: #16a34a; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .btn-blue { width: 100%; background-color: #0284c7; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .btn-delete { width: 100%; background-color: #dc2626; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 8px; }
-    </style>
-</head>
-<body>
-    <header>
-        <button class="open-sidebar-btn" onclick="openSidebar()">☰ الدروس والشهادة</button>
-        <div style="font-weight: 900; color: #d4af37;">Fares Academy 🎓</div>
-    </header>
+    # مستوى C1
+    ("c1_1", "C1", "الدرس 1: القراءة الأكاديمية والبودكاست", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("c1_2", "C1", "الدرس 2: مفردات المستوى المتقدم (C1 Vocabulary)", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("c1_3", "C1", "الدرس 3: التحدث بنبرة المتحدث الأصلي تماماً", 3, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("c1_4", "C1", "الدرس 4: تقديم العروض والخطب الاحترافية", 4, "https://www.youtube.com/embed/36yT2G228vA"),
+    ("c1_5", "C1", "الدرس 5: تحليل النصوص المعقدة ودلالاتها", 5, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+    ("c1_6", "C1", "الدرس 6: اختبار القياس والإتقان التام للغة", 6, "https://www.youtube.com/embed/36yT2G228vA")
+]
 
-    <div class="backdrop" id="backdrop" onclick="closeSidebar()"></div>
-
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <span class="brand">🎓 أكاديمية فارس</span>
-            <button class="close-btn" onclick="closeSidebar()">✕</button>
-        </div>
-
-        {% for level, lessons in data.items() %}
-            {% if lessons %}
-                <div class="level-title">المستوى {{ level }} ({{ lessons|length }} دروس)</div>
-                {% for lesson in lessons %}
-                    <a href="/lesson/{{ lesson.id }}" class="lesson-link {% if lesson.id == current_lesson.id %}active{% endif %}">
-                        {{ lesson.order }} - {{ lesson.title }}
-                    </a>
-                {% endfor %}
-            {% endif %}
-        {% endfor %}
-
-        <div class="cert-card">
-            <h4>🏅 شهادة الإتمام</h4>
-            <input type="text" id="studentNameInput" class="cert-input" placeholder="اسمك الثلاثي باللغة العربية">
-            <button onclick="openCertificate()" class="cert-btn">📜 عرض الشهادة</button>
-        </div>
-    </div>
-
-    <div class="main-content">
-        <div class="card">
-            <div class="lesson-heading">مستوى {{ current_lesson.level }} | {{ current_lesson.title }}</div>
-            <div class="video-box">
-                <iframe src="{{ current_lesson.video }}" allowfullscreen></iframe>
-            </div>
-            <a href="{{ current_lesson.video }}" target="_blank" class="yt-btn">🔴 فتح الفيديو في تطبيق YouTube</a>
-
-            <div class="admin-grid">
-                <div class="admin-box">
-                    <h4>➕ إضافة فيديو / درس جديد</h4>
-                    <form action="/add_lesson" method="POST">
-                        <div class="form-group">
-                            <label>المستوى:</label>
-                            <select name="level" class="form-control">
-                                <option value="A1">A1</option><option value="A2">A2</option>
-                                <option value="B1">B1</option><option value="B2">B2</option>
-                                <option value="C1">C1</option><option value="C2">C2</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>عنوان الدرس:</label>
-                            <input type="text" name="title" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>الترتيب:</label>
-                            <input type="number" name="order" class="form-control" value="1" required>
-                        </div>
-                        <div class="form-group">
-                            <label>رابط الفيديو:</label>
-                            <input type="text" name="video" class="form-control" required>
-                        </div>
-                        <button type="submit" class="btn-green">➕ إضافة</button>
-                    </form>
-                </div>
-
-                <div class="admin-box">
-                    <h4>⚙️ تعديل الدرس الحالي</h4>
-                    <form action="/update/{{ current_lesson.id }}" method="POST">
-                        <div class="form-group">
-                            <label>العنوان:</label>
-                            <input type="text" name="title" class="form-control" value="{{ current_lesson.title }}">
-                        </div>
-                        <div class="form-group">
-                            <label>الترتيب:</label>
-                            <input type="number" name="order" class="form-control" value="{{ current_lesson.order }}">
-                        </div>
-                        <div class="form-group">
-                            <label>الرابط:</label>
-                            <input type="text" name="video" class="form-control" value="{{ current_lesson.video }}">
-                        </div>
-                        <button type="submit" class="btn-blue">💾 حفظ التعديلات</button>
-                    </form>
-                    <form action="/delete/{{ current_lesson.id }}" method="POST" onsubmit="return confirm('حذف الدرس؟')">
-                        <button type="submit" class="btn-delete">🗑️ حذف الدرس</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function openSidebar() {
-            document.getElementById('sidebar').classList.add('active');
-            document.getElementById('backdrop').classList.add('active');
-        }
-        function closeSidebar() {
-            document.getElementById('sidebar').classList.remove('active');
-            document.getElementById('backdrop').classList.remove('active');
-        }
-        function openCertificate() {
-            let name = document.getElementById('studentNameInput').value.trim();
-            if (!name) { alert('اكتب اسمك أولاً'); return; }
-            window.location.href = '/certificate?name=' + encodeURIComponent(name);
-        }
-    </script>
-</body>
-</html>
-"""
-
-CERTIFICATE_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>شهادة إتمام - أكاديمية فارس</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;900&family=Amiri:wght@700&display=swap" rel="stylesheet">
-    <style>
-        body { background: #1e293b; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; font-family: 'Cairo', sans-serif; }
-        .cert-container { width: 800px; background: #fff; padding: 40px; border-radius: 15px; border: 10px double #d4af37; text-align: center; }
-        .cert-header { color: #1e293b; font-size: 28px; font-weight: 900; font-family: 'Amiri', serif; }
-        .cert-subtitle { color: #d4af37; font-size: 16px; font-weight: 800; margin-bottom: 25px; }
-        .student-name { font-size: 32px; font-weight: 900; color: #1e293b; border-bottom: 2px solid #d4af37; display: inline-block; padding: 0 20px 5px; font-family: 'Amiri', serif; }
-        .print-btn { background: #d4af37; color: #1e293b; border: none; padding: 12px 25px; border-radius: 30px; font-weight: 800; cursor: pointer; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <div class="cert-container">
-        <div class="cert-header">أكاديمية فارس لتعلم الإنجليزية</div>
-        <div class="cert-subtitle">Fares Academy</div>
-        <p>تشهد الأكاديمية بأن الطالب:</p>
-        <div class="student-name">{{ name }}</div>
-        <p style="margin-top: 15px;">قد أتم المستويات التعليمية والتطبيقات المقررة بنجاح.</p>
-        <button onclick="window.print()" class="print-btn">🖨️ طباعة الشهادة</button>
-    </div>
-</body>
-</html>
-"""
+with app.app_context():
+    db.create_all()
+    for lid, lvl, title, ord_num, url in DEFAULT_LESSONS:
+        if not Lesson.query.get(lid):
+            db.session.add(Lesson(id=lid, level=lvl, title=title, order=ord_num, youtube_url=url))
+    db.session.commit()
 
 @app.route('/')
 def index():
-    data = get_all_lessons()
-    for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
-        if data.get(lvl):
-            return redirect(f'/lesson/{data[lvl][0]["id"]}')
-    return redirect('/lesson/a1_1')
-
-@app.route('/lesson/<lesson_id>')
-def show_lesson(lesson_id):
-    data = get_all_lessons()
-    current = None
-    for level, lessons in data.items():
-        for l in lessons:
-            if l['id'] == lesson_id:
-                current = l
-                break
-    if not current:
-        current = {"id": lesson_id, "level": "A1", "title": "درس جديد", "order": 1, "video": "https://www.youtube.com/embed/gR_4m2b_sC4"}
-    return render_template_string(MAIN_TEMPLATE, data=data, current_lesson=current)
-
-@app.route('/add_lesson', methods=['POST'])
-def add_lesson():
-    level = request.form.get('level', 'A1')
-    title = request.form.get('title', 'درس جديد')
-    order_num = int(request.form.get('order', 1))
-    video_url = fix_youtube_url(request.form.get('video', ''))
-    lesson_id = f"{level.lower()}_{uuid.uuid4().hex[:6]}"
+    lesson_id = request.args.get('lesson', 'a1_1')
+    current_lesson = Lesson.query.get(lesson_id) or Lesson.query.first()
+    lessons = Lesson.query.order_by(Lesson.level, Lesson.order).all()
     
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO lessons (id, level, title, order_num, video_url) VALUES (?, ?, ?, ?, ?)',
-                   (lesson_id, level, title, order_num, video_url))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('show_lesson', lesson_id=lesson_id))
+    levels_data = {}
+    for l in lessons:
+        if l.level not in levels_data:
+            levels_data[l.level] = []
+        levels_data[l.level].append(l)
 
-@app.route('/update/<lesson_id>', methods=['POST'])
-def update_lesson(lesson_id):
-    new_title = request.form.get('title')
-    new_order = int(request.form.get('order', 1))
-    new_video = fix_youtube_url(request.form.get('video'))
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('UPDATE lessons SET title = ?, order_num = ?, video_url = ? WHERE id = ?',
-                   (new_title, new_order, new_video, lesson_id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('show_lesson', lesson_id=lesson_id))
+    HTML_TEMPLATE = """
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>أكاديمية فارس</title>
+        <style>
+            body { font-family: Tahoma, sans-serif; background: #121212; color: #fff; margin: 0; display: flex; }
+            .sidebar { width: 300px; background: #1e1e1e; height: 100vh; overflow-y: auto; padding: 20px; border-left: 1px solid #333; }
+            .main { flex: 1; padding: 30px; }
+            .level-title { color: #4CAF50; margin-top: 20px; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+            .lesson-link { display: block; padding: 8px 10px; margin: 5px 0; color: #ccc; text-decoration: none; border-radius: 4px; background: #2a2a2a; }
+            .lesson-link:hover, .lesson-link.active { background: #4CAF50; color: #fff; }
+            .video-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+            .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+            .admin-box { background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-top: 20px; }
+            input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 4px; }
+            button { background: #4CAF50; border: none; cursor: pointer; font-weight: bold; }
+            button:hover { background: #45a049; }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <h2>🎓 أكاديمية فارس</h2>
+            {% for lvl, l_list in levels.items() %}
+                <div class="level-title">المستوى {{ lvl }}</div>
+                {% for l in l_list %}
+                    <a href="/?lesson={{ l.id }}" class="lesson-link {% if l.id == current.id %}active{% endif %}">{{ l.title }}</a>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        <div class="main">
+            <h1>{{ current.title }} (المستوى {{ current.level }})</h1>
+            <div class="video-container">
+                <iframe src="{{ current.youtube_url }}" allowfullscreen></iframe>
+            </div>
+            
+            <div class="admin-box">
+                <h3>⚙️ لوحة تعديل وتحديث الدرس الحالي</h3>
+                <form method="POST" action="/update">
+                    <input type="hidden" name="lesson_id" value="{{ current.id }}">
+                    <label>عنوان الدرس:</label>
+                    <input type="text" name="title" value="{{ current.title }}" required>
+                    <label>رابط اليوتيوب (Embed):</label>
+                    <input type="text" name="youtube_url" value="{{ current.youtube_url }}" required>
+                    <button type="submit">حفظ التعديلات</button>
+                </form>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(HTML_TEMPLATE, current=current_lesson, levels=levels_data)
 
-@app.route('/delete/<lesson_id>', methods=['POST'])
-def delete_lesson(lesson_id):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM lessons WHERE id = ?', (lesson_id,))
-    conn.commit()
-    conn.close()
-    return redirect('/')
-
-@app.route('/certificate')
-def certificate():
-    name = request.args.get('name', 'طالب الأكاديمية')
-    return render_template_string(CERTIFICATE_TEMPLATE, name=name)
+@app.route('/update', methods=['POST'])
+def update():
+    lesson_id = request.form.get('lesson_id')
+    lesson = Lesson.query.get(lesson_id)
+    if lesson:
+        lesson.title = request.form.get('title')
+        lesson.youtube_url = request.form.get('youtube_url')
+        db.session.commit()
+    return redirect(url_for('index', lesson=lesson_id))
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
