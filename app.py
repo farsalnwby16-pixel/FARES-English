@@ -5,7 +5,6 @@ import uuid
 
 app = Flask(__name__)
 
-# استخدام المجلد /tmp المتوافق مع بيئة Vercel لمنع خطأ 500
 BASE_DIR = '/tmp' if os.path.exists('/tmp') else os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'academy.db')
 
@@ -37,18 +36,36 @@ def init_db():
             )
         ''')
         
-        cursor.execute("SELECT COUNT(*) FROM lessons")
-        if cursor.fetchone()[0] == 0:
-            default_lessons = [
-                ("a1_1", "A1", "الدرس 1: التأسيس الشامل وبداية التعارف والضمائر", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
-                ("a1_2", "A1", "الدرس 2: الروتين اليومي والسؤال عن الوقت", 2, "https://www.youtube.com/embed/36yT2G228vA"),
-                ("a2_1", "A2", "الدرس 1: إدارة الحوارات الكاملة في المطاعم والمقاهي", 1, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
-                ("b1_1", "B1", "الدرس 1: التخطيط للعطلات ومناقشة وجهات السفر", 1, "https://www.youtube.com/embed/uG_7S86t6Dk"),
-                ("b2_1", "B2", "الدرس 1: إدارة اجتماعات العمل وتقديم العروض التقديمية", 1, "https://www.youtube.com/embed/S32Y_Jm34sY"),
-                ("c1_1", "C1", "الدرس 1: الخطاب الأكاديمي وصياغة الحجج المنطقية", 1, "https://www.youtube.com/embed/36yT2G228vA")
-            ]
-            cursor.executemany("INSERT INTO lessons VALUES (?, ?, ?, ?, ?)", default_lessons)
-            conn.commit()
+        # قائمة كاملة بجميع الدروس والفيديوهات المعتمدة
+        default_lessons = [
+            # المستوى A1
+            ("a1_1", "A1", "الدرس 1: التأسيس الشامل وبداية التعارف والضمائر", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+            ("a1_2", "A1", "الدرس 2: الروتين اليومي والسؤال عن الوقت", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+            ("a1_3", "A1", "الدرس 3: العائلة والأقارب وصفات الأشخاص", 3, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
+            
+            # المستوى A2
+            ("a2_1", "A2", "الدرس 1: إدارة الحوارات الكاملة في المطاعم والمقاهي", 1, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
+            ("a2_2", "A2", "الدرس 2: التسوق والمساومة والتعبير عن الآراء", 2, "https://www.youtube.com/embed/uG_7S86t6Dk"),
+            
+            # المستوى B1
+            ("b1_1", "B1", "الدرس 1: التخطيط للعطلات ومناقشة وجهات السفر", 1, "https://www.youtube.com/embed/uG_7S86t6Dk"),
+            ("b1_2", "B1", "الدرس 2: مقابلات العمل وصياغة السيرة الذاتية", 2, "https://www.youtube.com/embed/S32Y_Jm34sY"),
+            
+            # المستوى B2
+            ("b2_1", "B2", "الدرس 1: إدارة اجتماعات العمل وتقديم العروض التقديمية", 1, "https://www.youtube.com/embed/S32Y_Jm34sY"),
+            ("b2_2", "B2", "الدرس 2: النقاشات الأكاديمية والتحليل النظري", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+            
+            # المستوى C1
+            ("c1_1", "C1", "الدرس 1: الخطاب الأكاديمي وصياغة الحجج المنطقية", 1, "https://www.youtube.com/embed/36yT2G228vA")
+        ]
+
+        for lesson in default_lessons:
+            cursor.execute('''
+                INSERT OR REPLACE INTO lessons (id, level, title, order_num, video_url)
+                VALUES (?, ?, ?, ?, ?)
+            ''', lesson)
+
+        conn.commit()
         conn.close()
     except Exception as e:
         pass
