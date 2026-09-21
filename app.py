@@ -1,50 +1,56 @@
 from flask import Flask, request, render_template_string, redirect, url_for
+import sqlite3
 
 app = Flask(__name__)
+DB_NAME = 'academy.db'
 
-# قاعدة بيانات الدروس والمستويات كاملة كما في الصورة
-DATA = {
-    "A1": [
-        {"id": "a1_1", "title": "نطق الحروف 1", "order": 1, "video": "https://www.youtube.com/embed/gR_4m2b_sC4"},
-        {"id": "a1_2", "title": "تعلم النطق 2", "order": 2, "video": "https://www.youtube.com/embed/36yT2G228vA"},
-        {"id": "a1_3", "title": "تكوين جملة 3", "order": 3, "video": "https://www.youtube.com/embed/L9A1Nfl_P_w"},
-        {"id": "a1_4", "title": "Grammar 4", "order": 4, "video": "https://www.youtube.com/embed/uG_7S86t6Dk"},
-        {"id": "a1_5", "title": "تأسيس 5", "order": 5, "video": "https://www.youtube.com/embed/S32Y_Jm34sY"},
-        {"id": "a1_6", "title": "حروف الجر 6", "order": 6, "video": "https://www.youtube.com/embed/gR_4m2b_sC4"}
-    ],
-    "A2": [
-        {"id": "a2_0", "title": "A2 - Foundation Track", "order": 0, "video": "https://www.youtube.com/embed/36yT2G228vA"},
-        {"id": "a2_1", "title": "تقديم نفسك 1", "order": 1, "video": "https://www.youtube.com/embed/L9A1Nfl_P_w"},
-        {"id": "a2_2", "title": "استماع يومي 2", "order": 2, "video": "https://www.youtube.com/embed/uG_7S86t6Dk"},
-        {"id": "a2_3", "title": "تعارف 3", "order": 3, "video": "https://www.youtube.com/embed/S32Y_Jm34sY"},
-        {"id": "a2_4", "title": "محادثات يومية 4", "order": 4, "video": "https://www.youtube.com/embed/gR_4m2b_sC4"},
-        {"id": "a2_5", "title": "محادثة 5", "order": 5, "video": "https://www.youtube.com/embed/36yT2G228vA"}
-    ],
-    "B1": [
-        {"id": "b1_1", "title": "ممارسة الاستماع 1", "order": 1, "video": "https://www.youtube.com/embed/L9A1Nfl_P_w"},
-        {"id": "b1_2", "title": "Grammar 2", "order": 2, "video": "https://www.youtube.com/embed/uG_7S86t6Dk"},
-        {"id": "b1_3", "title": "الفرق بين المضارع التام والماضي البسيط 3", "order": 3, "video": "https://www.youtube.com/embed/S32Y_Jm34sY"},
-        {"id": "b1_4", "title": "حالات if الاربعة 4", "order": 4, "video": "https://www.youtube.com/embed/gR_4m2b_sC4"},
-        {"id": "b1_5", "title": "الاستماع 5", "order": 5, "video": "https://www.youtube.com/embed/36yT2G228vA"}
-    ],
-    "B2": [
-        {"id": "b2_1", "title": "Shadowing 1", "order": 1, "video": "https://www.youtube.com/embed/L9A1Nfl_P_w"},
-        {"id": "b2_2", "title": "محادثة سفر 2", "order": 2, "video": "https://www.youtube.com/embed/uG_7S86t6Dk"},
-        {"id": "b2_3", "title": "محادثة سفر 2 - الجزء الثاني 3", "order": 3, "video": "https://www.youtube.com/embed/S32Y_Jm34sY"},
-        {"id": "b2_4", "title": "مقارنة الأشياء 4", "order": 4, "video": "https://www.youtube.com/embed/gR_4m2b_sC4"},
-        {"id": "b2_5", "title": "استماع 5", "order": 5, "video": "https://www.youtube.com/embed/36yT2G228vA"},
-        {"id": "b2_6", "title": "محادثة تسوق 6", "order": 6, "video": "https://www.youtube.com/embed/L9A1Nfl_P_w"}
-    ],
-    "C1": [
-        {"id": "c1_1", "title": "بودكاست 1", "order": 1, "video": "https://www.youtube.com/embed/uG_7S86t6Dk"},
-        {"id": "c1_2", "title": "بودكاست 2", "order": 2, "video": "https://www.youtube.com/embed/S32Y_Jm34sY"},
-        {"id": "c1_3", "title": "بودكاست 3", "order": 3, "video": "https://www.youtube.com/embed/gR_4m2b_sC4"},
-        {"id": "c1_4", "title": "اختبر مستواك", "order": 4, "video": "https://www.youtube.com/embed/36yT2G228vA"}
-    ],
-    "C2": [
-        {"id": "c2_0", "title": "C2 - Foundation Track", "order": 0, "video": "https://www.youtube.com/embed/L9A1Nfl_P_w"}
-    ]
-}
+# إنشاء قاعدة البيانات وقراءة الدروس منها (SQLite)
+def init_db():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS lessons (
+            id TEXT PRIMARY KEY,
+            level TEXT,
+            title TEXT,
+            order_num INTEGER,
+            video_url TEXT
+        )
+    ''')
+    
+    # التأكد من وجود البيانات الأساسية إذا كانت القاعدة فارغة
+    cursor.execute("SELECT COUNT(*) FROM lessons")
+    if cursor.fetchone()[0] == 0:
+        default_lessons = [
+            ("a1_1", "A1", "نطق الحروف 1", 1, "https://www.youtube.com/embed/gR_4m2b_sC4"),
+            ("a1_2", "A1", "تعلم النطق 2", 2, "https://www.youtube.com/embed/36yT2G228vA"),
+            ("a1_3", "A1", "تكوين جملة 3", 3, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
+            ("a1_4", "A1", "Grammar 4", 4, "https://www.youtube.com/embed/uG_7S86t6Dk"),
+            ("a2_1", "A2", "تقديم نفسك 1", 1, "https://www.youtube.com/embed/L9A1Nfl_P_w"),
+            ("b1_1", "B1", "ممارسة الاستماع 1", 1, "https://www.youtube.com/embed/uG_7S86t6Dk"),
+            ("b2_1", "B2", "Shadowing 1", 1, "https://www.youtube.com/embed/S32Y_Jm34sY"),
+            ("c1_4", "C1", "اختبر مستواك", 4, "https://www.youtube.com/embed/36yT2G228vA")
+        ]
+        cursor.executemany("INSERT INTO lessons VALUES (?, ?, ?, ?, ?)", default_lessons)
+        conn.commit()
+    conn.close()
+
+def get_all_lessons():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, level, title, order_num, video_url FROM lessons ORDER BY level, order_num")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    data = {}
+    for r in rows:
+        level = r[1]
+        if level not in data:
+            data[level] = []
+        data[level].append({"id": r[0], "title": r[2], "order": r[3], "video": r[4]})
+    return data
+
+init_db()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -52,153 +58,145 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أكاديمية فارس</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>Fares Academy - أكاديمية فارس</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-        body { display: flex; background-color: #f8fafc; color: #1e293b; min-height: 100vh; }
+        body { background-color: #f8fafc; color: #1e293b; min-height: 100vh; overflow-x: hidden; }
 
-        /* القائمة الجانبية الداكنة */
-        .sidebar { width: 280px; background-color: #1e293b; color: white; padding: 15px; overflow-y: auto; height: 100vh; position: sticky; top: 0; flex-shrink: 0; transition: margin-right 0.3s; }
-        .sidebar.hidden { margin-right: -280px; }
-        
-        .brand { text-align: right; font-size: 20px; font-weight: 800; padding: 10px 5px 20px; border-bottom: 1px solid #334155; margin-bottom: 15px; color: #f8fafc; }
-        
-        .level-header { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 800; color: #f59e0b; margin-top: 15px; margin-bottom: 8px; padding: 0 5px; }
-        .add-btn { background-color: #10b981; color: white; border: none; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold; }
-        
-        .lesson-link { display: block; padding: 8px 12px; color: #cbd5e1; text-decoration: none; border-radius: 6px; font-size: 13px; margin-bottom: 4px; font-weight: 600; }
-        .lesson-link:hover { background-color: #334155; color: white; }
-        .lesson-link.active { background-color: #2563eb; color: white; font-weight: 700; }
+        /* الهيدر العلوي */
+        header { background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 90; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .open-sidebar-btn { background: #1e293b; color: #d4af37; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; }
 
-        /* منطقة المحتوى الرئيسية */
-        .main-wrapper { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .top-bar { width: 100%; max-width: 800px; margin-bottom: 15px; text-align: center; }
-        .toggle-btn { background-color: #1e293b; color: #f8fafc; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        /* خلفية تعتيم عند فتح القائمة للموبايل */
+        .backdrop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 998; backdrop-filter: blur(2px); }
+        .backdrop.active { display: block; }
 
-        .content-card { width: 100%; max-width: 800px; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        /* القائمة الجانبية المنزلقة المضبوطة (Drawer) */
+        .sidebar { position: fixed; top: 0; right: -320px; width: 290px; max-width: 85vw; height: 100vh; background-color: #1e293b; color: white; padding: 20px; overflow-y: auto; z-index: 999; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: -5px 0 20px rgba(0,0,0,0.25); }
+        .sidebar.active { right: 0; }
         
-        .lesson-title { text-align: center; font-size: 22px; font-weight: 800; color: #334155; margin-bottom: 15px; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 12px; }
+        .brand { font-size: 18px; font-weight: 800; color: #d4af37; }
+        .close-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; }
+        
+        .level-title { font-size: 13px; font-weight: 800; color: #f59e0b; margin-top: 15px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+        .lesson-link { display: block; padding: 9px 12px; color: #cbd5e1; text-decoration: none; border-radius: 6px; font-size: 13px; margin-bottom: 4px; font-weight: 600; background: rgba(255,255,255,0.02); }
+        .lesson-link:hover, .lesson-link.active { background-color: #d4af37; color: #1e293b; font-weight: 700; }
+
+        /* قسم الشهادة داخل القائمة */
+        .cert-card { background: rgba(212, 175, 55, 0.1); border: 1px solid #d4af37; padding: 15px; border-radius: 10px; margin-top: 25px; text-align: center; }
+        .cert-card h4 { color: #d4af37; margin-bottom: 6px; font-size: 13px; }
+        .cert-input { width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: none; text-align: center; font-size: 12px; outline: none; }
+        .cert-btn { width: 100%; padding: 9px; background-color: #d4af37; color: #1e293b; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; }
+
+        /* المحتوى الرئيسي */
+        .main-content { max-width: 900px; margin: 0 auto; padding: 20px 15px; }
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .lesson-heading { text-align: center; font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 15px; }
 
         /* مشغل الفيديو */
-        .video-box { width: 100%; height: 400px; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+        .video-box { width: 100%; height: 420px; background: #000; border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
         .video-box iframe { width: 100%; height: 100%; border: none; }
-        
-        .yt-direct-btn { display: block; width: 100%; text-align: center; background-color: #ef4444; color: white; text-decoration: none; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-bottom: 20px; }
+        .yt-btn { display: block; text-align: center; background: #ef4444; color: white; text-decoration: none; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-bottom: 15px; }
 
-        /* لوحة الأدمن */
-        .admin-panel { background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-        .admin-title { color: #0284c7; font-size: 14px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-        .form-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .form-group label { display: block; font-size: 12px; font-weight: 700; color: #0369a1; margin-bottom: 4px; }
-        .form-control { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
+        /* لوحة التعديل للأدمن */
+        .admin-box { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 15px; }
+        .admin-box h4 { color: #0284c7; font-size: 13px; margin-bottom: 10px; font-weight: 800; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 140px; }
+        .form-group label { display: block; font-size: 11px; font-weight: bold; color: #0369a1; margin-bottom: 4px; }
+        .form-control { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none; }
         .save-btn { width: 100%; background-color: #059669; color: white; border: none; padding: 9px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
 
-        /* زر الإشارة والتنقل */
-        .nav-buttons { display: flex; justify-content: space-between; gap: 10px; margin-top: 15px; }
-        .nav-btn { flex: 1; padding: 10px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; font-size: 13px; font-weight: bold; color: #475569; cursor: pointer; text-align: center; text-decoration: none; }
-
-        /* نصوص الاستماع والشادوينج */
-        .audio-section { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; width: 100%; max-width: 800px; text-align: center; }
-        .audio-title { font-size: 16px; font-weight: 800; color: #334155; margin-bottom: 15px; }
-        .audio-item { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #e2e8f0; }
-        .audio-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-        audio { width: 100%; max-width: 350px; height: 35px; margin-bottom: 6px; }
-        .text-en { font-weight: 700; color: #1e293b; font-size: 14px; }
-        .text-ar { color: #64748b; font-size: 12px; margin-top: 2px; }
-
         @media (max-width: 768px) {
-            .video-box { height: 220px; }
-            .form-grid { grid-template-columns: 1fr; }
-            .sidebar { position: fixed; z-index: 100; }
+            .video-box { height: 230px; }
         }
     </style>
 </head>
 <body>
 
+    <header>
+        <button class="open-sidebar-btn" onclick="openSidebar()">☰ القائمة الجانبية</button>
+        <div style="font-weight: 800; color: #1e293b; font-size: 15px;">Fares Academy 🎓</div>
+    </header>
+
+    <div class="backdrop" id="backdrop" onclick="closeSidebar()"></div>
+
     <!-- القائمة الجانبية -->
     <div class="sidebar" id="sidebar">
-        <div class="brand">🎓 أكاديمية فارس</div>
-        
+        <div class="sidebar-header">
+            <span class="brand">🎓 أكاديمية فارس</span>
+            <button class="close-btn" onclick="closeSidebar()">✕</button>
+        </div>
+
         {% for level, lessons in data.items() %}
-            <div class="level-header">
-                <span>{{ level }}</span>
-                <button class="add-btn">+ إضافة</button>
+            <div class="level-title">
+                <span>المستوى {{ level }}</span>
             </div>
             {% for lesson in lessons %}
                 <a href="/lesson/{{ lesson.id }}" class="lesson-link {% if lesson.id == current_lesson.id %}active{% endif %}">
-                    {{ lesson.order }} {{ lesson.title }}
+                    {{ lesson.order }} - {{ lesson.title }}
                 </a>
             {% endfor %}
         {% endfor %}
+
+        <div class="cert-card">
+            <h4>🏅 شهادة الإتمام الرسمية</h4>
+            <input type="text" id="studentNameInput" class="cert-input" placeholder="اكتب اسمك الثلاثي">
+            <button onclick="openCertificate()" class="cert-btn">📜 إصدار الشهادة</button>
+        </div>
     </div>
 
     <!-- المحتوى الرئيسي -->
-    <div class="main-wrapper">
-        <div class="top-bar">
-            <button class="toggle-btn" onclick="toggleSidebar()">📁 إخفاء / إظهار القائمة الجانبية</button>
-        </div>
+    <div class="main-content">
+        <div class="card">
+            <div class="lesson-heading">{{ current_lesson.title }}</div>
 
-        <div class="content-card">
-            <div class="lesson-title">{{ current_lesson.title }}</div>
-
-            <!-- مشغل الفيديو -->
             <div class="video-box">
                 <iframe src="{{ current_lesson.video }}" allowfullscreen></iframe>
             </div>
-            <a href="{{ current_lesson.video }}" target="_blank" class="yt-direct-btn">🔴 مشاهدة الفيديو مباشرة على يوتيوب (لو ظهرت مشكلة في العرض)</a>
+            <a href="{{ current_lesson.video }}" target="_blank" class="yt-btn">🔴 مشاهدة الفيديو مباشرة على يوتيوب</a>
 
-            <!-- لوحة الأدمن -->
-            <div class="admin-panel">
-                <div class="admin-title">⚙️ لوحة الأدمن: تعديل عنوان وترتيب ورابط الفيديو</div>
+            <!-- لوحة التعديل المسجلة بـ SQLite -->
+            <div class="admin-box">
+                <h4>⚙️ تعديل بيانات الفيديو (محفوظة في SQLite)</h4>
                 <form action="/update/{{ current_lesson.id }}" method="POST">
-                    <div class="form-grid">
+                    <div class="form-row">
                         <div class="form-group">
                             <label>عنوان الدرس:</label>
                             <input type="text" name="title" class="form-control" value="{{ current_lesson.title }}">
                         </div>
                         <div class="form-group">
-                            <label>رقم الترتيب في القائمة:</label>
+                            <label>رقم الترتيب:</label>
                             <input type="number" name="order" class="form-control" value="{{ current_lesson.order }}">
-                            <span style="font-size: 10px; color: #64748b;">1 يكون اول درس، 2 الثاني وهكذا...</span>
                         </div>
                     </div>
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label>رابط يوتيوب الجديد (اختياري لو عايز تغيره):</label>
-                        <input type="text" name="video" class="form-control" placeholder="اتركه فارغاً لو مش عايز تغير الفيديو، أو اضع الرابط الجديد">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label>رابط الفيديو الجديد (Embed / YouTube):</label>
+                        <input type="text" name="video" class="form-control" value="{{ current_lesson.video }}">
                     </div>
-                    <button type="submit" class="save-btn">حفظ التعديلات والترتيب</button>
+                    <button type="submit" class="save-btn">💾 حفظ التغييرات في قاعدة البيانات SQLite</button>
                 </form>
-            </div>
-
-            <!-- زر الانتقال بين الدروس -->
-            <div class="nav-buttons">
-                <a href="#" class="nav-btn">➡️ الدرس التالي</a>
-                <a href="#" class="nav-btn">الدرس السابق ⬅️</a>
-            </div>
-        </div>
-
-        <!-- نصوص الاستماع والشادوينج -->
-        <div class="audio-section">
-            <div class="audio-title">🎧 نصوص الاستماع والشادوينج</div>
-            
-            <div class="audio-item">
-                <audio controls src=""></audio>
-                <div class="text-en">.Welcome to this new custom lesson</div>
-                <div class="text-ar">مرحباً بك في هذا الدرس الجديد المخصص</div>
-            </div>
-
-            <div class="audio-item">
-                <audio controls src=""></audio>
-                <div class="text-en">Practice speaking and listening carefully.</div>
-                <div class="text-ar">تدرب على الحديث والاستماع بعناية</div>
             </div>
         </div>
     </div>
 
     <script>
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('hidden');
+        function openSidebar() {
+            document.getElementById('sidebar').classList.add('active');
+            document.getElementById('backdrop').classList.add('active');
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('backdrop').classList.remove('active');
+        }
+
+        function openCertificate() {
+            let name = document.getElementById('studentNameInput').value.trim();
+            if (!name) { alert('ادخل اسمك أولاً!'); return; }
+            window.location.href = '/certificate?name=' + encodeURIComponent(name);
         }
     </script>
 </body>
@@ -211,15 +209,16 @@ def index():
 
 @app.route('/lesson/<lesson_id>')
 def show_lesson(lesson_id):
+    data = get_all_lessons()
     current = None
-    for level, lessons in DATA.items():
+    for level, lessons in data.items():
         for l in lessons:
             if l['id'] == lesson_id:
                 current = l
                 break
     if not current:
-        current = DATA["C1"][3] # افتراضي على اختبر مستواك
-    return render_template_string(HTML_TEMPLATE, data=DATA, current_lesson=current)
+        current = {"id": "c1_4", "title": "اختبر مستواك", "order": 4, "video": "https://www.youtube.com/embed/36yT2G228vA"}
+    return render_template_string(HTML_TEMPLATE, data=data, current_lesson=current)
 
 @app.route('/update/<lesson_id>', methods=['POST'])
 def update_lesson(lesson_id):
@@ -227,13 +226,16 @@ def update_lesson(lesson_id):
     new_order = request.form.get('order')
     new_video = request.form.get('video')
     
-    for level, lessons in DATA.items():
-        for l in lessons:
-            if l['id'] == lesson_id:
-                if new_title: l['title'] = new_title
-                if new_order: l['order'] = int(new_order)
-                if new_video and new_video.strip(): l['video'] = new_video.strip()
-                break
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE lessons 
+        SET title = ?, order_num = ?, video_url = ?
+        WHERE id = ?
+    ''', (new_title, int(new_order), new_video, lesson_id))
+    conn.commit()
+    conn.close()
+    
     return redirect(url_for('show_lesson', lesson_id=lesson_id))
 
 if __name__ == '__main__':
